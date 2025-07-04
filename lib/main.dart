@@ -1,13 +1,16 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'helpers/printer_helpers.dart';
 import 'service/bluetooth_service.dart';
 import 'template/printer_templates.dart';
 import 'widgets/bluetooth_list.dart'; // pastikan BluetoothDropdown sudah jadi
 
-void main() {
+Future<void> main() async {
+  await dotenv.load(fileName: ".env");
   runApp(MyApp());
 }
 
@@ -19,6 +22,7 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   bool connected = false;
   bool isPrinting = false;
+  bool isCheckKeyWebsocket = false;
   bool isWebSocketConnected = false;
 
   WebSocketChannel? channel;
@@ -30,6 +34,8 @@ class _MyAppState extends State<MyApp> {
     BluetoothService.startConnectionMonitor((status) {
       setState(() => connected = status);
     });
+
+    connectWebSocket();
   }
 
   @override
@@ -41,15 +47,26 @@ class _MyAppState extends State<MyApp> {
     super.dispose();
   }
 
-  void connectWebSocket(String url) {
+  Future<void> connectWebSocket() async {
     try {
       channel?.sink.close(); // tutup koneksi lama jika ada
 
+      final url = dotenv.get('WEBSOCKET_URL', fallback: 'WS');
       final newChannel = WebSocketChannel.connect(Uri.parse(url));
+
+      await newChannel.ready;
+
       setState(() {
         channel = newChannel;
         isWebSocketConnected = true;
       });
+
+      newChannel.sink.add(
+        jsonEncode({
+          'event': 'pusher:subscribe',
+          'data': {'channel': 'order-print-mobile'},
+        }),
+      );
 
       newChannel.stream.listen(
         (data) {
@@ -77,15 +94,12 @@ class _MyAppState extends State<MyApp> {
   }
 
   void _autoReconnectWebSocket() {
-    final url = urlController.text.trim();
-    if (url.isNotEmpty) {
-      Future.delayed(const Duration(seconds: 5), () {
-        if (!isWebSocketConnected) {
-          print("🔄 Attempting to reconnect WebSocket...");
-          connectWebSocket(url);
-        }
-      });
-    }
+    Future.delayed(const Duration(seconds: 5), () {
+      if (!isWebSocketConnected) {
+        print("🔄 Attempting to reconnect WebSocket...");
+        connectWebSocket();
+      }
+    });
   }
 
   Future<void> _handleWebSocketMessage(String jsonString) async {
@@ -116,6 +130,27 @@ class _MyAppState extends State<MyApp> {
 
   Future<void> printReceipt() async {
     setState(() => isPrinting = true);
+
+    if (!connected) {
+      print("⚠️ Printer not connected");
+      setState(() => isPrinting = false);
+      return;
+    }
+
+    final bytes = await buildReceiptFromJsonTemplate(template, payload);
+    final result = await BluetoothService.write(bytes);
+
+    if (result) {
+      print("✅ Receipt sent to printer");
+    } else {
+      print("❌ Failed to send receipt");
+    }
+
+    setState(() => isPrinting = false);
+  }
+
+  Future<void> validateWebsocketKey(String key) async {
+    setState(() => isCheckKeyWebsocket = true);
 
     if (!connected) {
       print("⚠️ Printer not connected");
@@ -180,16 +215,17 @@ class _MyAppState extends State<MyApp> {
                 controller: urlController,
                 decoration: const InputDecoration(
                   border: OutlineInputBorder(),
-                  labelText: 'WebSocket URL',
-                  hintText: 'ws://yourserver.com/ws',
+                  labelText: 'Connection Key',
+                  hintText: 'e.g. abc123',
                 ),
+                maxLength: 6,
               ),
               const SizedBox(height: 10),
               ElevatedButton(
                 onPressed: () {
                   final url = urlController.text.trim();
                   if (url.isNotEmpty) {
-                    connectWebSocket(url);
+                    validateWebsocketKey(url);
                   }
                 },
                 child: Text(isWebSocketConnected
