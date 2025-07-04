@@ -34,7 +34,7 @@ Future<List<int>> buildReceiptFromJsonTemplate(
           final imageBytes = response.bodyBytes;
           final image = decodeImage(Uint8List.fromList(imageBytes));
           if (image != null) {
-            bytes += gen.image(image, align: align);
+            bytes += gen.image(image, align: align,);
           } else {
             print("❌ Gagal decode image dari response");
           }

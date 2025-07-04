@@ -7,7 +7,7 @@
         android:name="android.permission.BLUETOOTH_ADMIN"
     android:maxSdkVersion="30" />
     <application
-        android:label="printer_bluetooth_by_hanif"
+        android:label="Printer Bluetooth by Hanif"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

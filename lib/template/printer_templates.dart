@@ -79,7 +79,7 @@ final Map<String, dynamic> template = {
 
 final Map<String, dynamic> payload = {
   "logo":
-      "https://equalengineers.com/wp-content/uploads/2024/04/dummy-logo-5b.png", // opsional, jika kamu punya support gambar
+      "https://api.hanadivtech.my.id/images/assets/choayo_logo.png", // opsional, jika kamu punya support gambar
   "storeName": "Choayo Laundry",
   "storeBranch": "Store 1",
   "receiptNumber": "#STR01-202566",
