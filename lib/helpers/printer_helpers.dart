@@ -34,7 +34,10 @@ Future<List<int>> buildReceiptFromJsonTemplate(
           final imageBytes = response.bodyBytes;
           final image = decodeImage(Uint8List.fromList(imageBytes));
           if (image != null) {
-            bytes += gen.image(image, align: align,);
+            bytes += gen.image(
+              image,
+              align: align,
+            );
           } else {
             print("❌ Gagal decode image dari response");
           }
@@ -98,8 +101,7 @@ Future<List<int>> buildReceiptFromJsonTemplate(
         final item = items[i];
 
         // Baris pertama: no. + nama
-        bytes += gen.text("${i + 1}. ${item["name"]}",
-            styles: PosStyles(bold: true));
+        bytes += gen.text("${item["name"]}", styles: PosStyles(bold: true));
 
         // Baris kedua: qty kiri, total kanan
         bytes += gen.row([
@@ -187,6 +189,35 @@ Future<List<int>> buildReceiptFromJsonTemplate(
       }
 
       bytes += gen.feed(0);
+    } else if (type == "custom_payments" || type == "payments") {
+      final payments = payload["payments"] as List?;
+      if (payments != null && payments.isNotEmpty) {
+        bytes += gen.text("Payment:", styles: PosStyles(bold: true));
+        for (var pay in payments) {
+          final name = pay["name"] ?? "";
+          final total = pay["total"] ?? "";
+          // Format: - Cash         Rp 50.000 (rata kiri-kanan)
+          bytes += gen.row([
+            PosColumn(
+              text: "- $name",
+              width: 6,
+              styles: PosStyles(
+                align: PosAlign.left,
+                bold: true,
+              ),
+            ),
+            PosColumn(
+              text: total,
+              width: 6,
+              styles: PosStyles(
+                align: PosAlign.right,
+                bold: true,
+              ),
+            ),
+          ]);
+        }
+        bytes += gen.feed(1);
+      }
     }
 
     bytes += gen.feed(0); // feed after each element
